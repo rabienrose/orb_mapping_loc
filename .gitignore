@@ -1,3 +1,11 @@
+*.kdev4
+Vocabulary
+build
+lib
+mono_*
+rgbd_*
+stereo_*
+
 # Prerequisites
 *.d
 
