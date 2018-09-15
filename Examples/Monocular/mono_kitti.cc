@@ -36,9 +36,9 @@ void LoadImages(const string &strSequence, vector<string> &vstrImageFilenames,
 
 int main(int argc, char **argv)
 {
-    if(argc != 7)
+    if(argc != 9)
     {
-        cerr << endl << "Usage: ./mono_kitti path_to_vocabulary path_to_settings path_to_sequence map_addr start_frame total_frame" << endl;
+        cerr << endl << "Usage: ./mono_kitti path_to_vocabulary path_to_settings path_to_sequence map_addr start_frame total_frame reuse_map save_map" << endl;
         return 1;
     }
     
@@ -46,6 +46,15 @@ int main(int argc, char **argv)
     
     int start_frame=std::atoi(argv[5]);
     int total_frame=std::atoi(argv[6]);
+    
+    std::string reuse_map_str=argv[7];
+    std::string save_map_str=argv[8];
+    bool reuse_map= false;
+    if (reuse_map_str=="true")
+        reuse_map=true;
+    bool save_map= false;
+    if (save_map_str=="true")
+        save_map=true;
 
     // Retrieve paths to images
     vector<string> vstrImageFilenames;
@@ -55,7 +64,7 @@ int main(int argc, char **argv)
     int nImages = vstrImageFilenames.size();
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
-    ORB_SLAM2::System SLAM(argv[1],argv[2],ORB_SLAM2::System::MONOCULAR,true, true);
+    ORB_SLAM2::System SLAM(argv[1],argv[2],ORB_SLAM2::System::MONOCULAR,true, reuse_map, map_filename);
 
     // Vector for tracking time statistics
     vector<float> vTimesTrack;
@@ -124,7 +133,9 @@ int main(int argc, char **argv)
     cout << "mean tracking time: " << totaltime/nImages << endl;
 
     // Save camera trajectory
-    SLAM.SaveMap(map_filename);
+    if (save_map){
+        SLAM.SaveMap(map_filename);
+    }
 
     return 0;
 }
