@@ -2,9 +2,13 @@
 Vocabulary
 build
 lib
-mono_*
-rgbd_*
-stereo_*
+mono_euroc
+mono_kitti
+mono_tum
+rgbd_tum
+stereo_kitti
+stereo_euroc
+*.bin
 
 # Prerequisites
 *.d

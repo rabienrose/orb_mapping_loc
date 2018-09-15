@@ -29,9 +29,9 @@
 namespace ORB_SLAM2
 {
 
-System::System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor,
-               const bool bUseViewer):mSensor(sensor), mpViewer(static_cast<Viewer*>(NULL)), mbReset(false),mbActivateLocalizationMode(false),
-        mbDeactivateLocalizationMode(false)
+System::System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor, const bool bUseViewer, bool bReuse, string mapFilePath):
+               mSensor(sensor), mpViewer(static_cast<Viewer*>(NULL)), mbReset(false),mbActivateLocalizationMode(false),
+                mbDeactivateLocalizationMode(false)
 {
     // Output welcome message
     cout << endl <<
@@ -73,9 +73,43 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
 
     //Create KeyFrame Database
     mpKeyFrameDatabase = new KeyFrameDatabase(*mpVocabulary);
+    
+    if (!bReuse)
+    {
+        mpMap = new Map();
+    }
+    else
+    {
+        LoadMap(mapFilePath.c_str());
+        //mpKeyFrameDatabase->set_vocab(mpVocabulary);
 
-    //Create the Map
-    mpMap = new Map();
+        vector<ORB_SLAM2::KeyFrame*> vpKFs = mpMap->GetAllKeyFrames();
+        for (vector<ORB_SLAM2::KeyFrame*>::iterator it = vpKFs.begin(); it != vpKFs.end(); ++it)
+        {
+            (*it)->SetKeyFrameDatabase(mpKeyFrameDatabase);
+            (*it)->SetORBvocabulary(mpVocabulary);
+            (*it)->SetMap(mpMap);
+            (*it)->ComputeBoW();
+            mpKeyFrameDatabase->add(*it);
+            (*it)->SetMapPoints(mpMap->GetAllMapPoints());
+            (*it)->SetSpanningTree(vpKFs);
+            (*it)->SetGridParams(vpKFs);
+
+            // Reconstruct map points Observation
+        }
+
+        vector<ORB_SLAM2::MapPoint*> vpMPs = mpMap->GetAllMapPoints();
+        for (vector<ORB_SLAM2::MapPoint*>::iterator mit = vpMPs.begin(); mit != vpMPs.end(); ++mit)
+        {
+            (*mit)->SetMap(mpMap);
+            (*mit)->SetObservations(vpKFs);
+        }
+
+        for (vector<ORB_SLAM2::KeyFrame*>::iterator it = vpKFs.begin(); it != vpKFs.end(); ++it)
+        {
+            (*it)->UpdateConnections();
+        }
+    }
 
     //Create Drawers. These are used by the Viewer
     mpFrameDrawer = new FrameDrawer(mpMap);
@@ -84,7 +118,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     //Initialize the Tracking thread
     //(it will live in the main thread of execution, the one that called this constructor)
     mpTracker = new Tracking(this, mpVocabulary, mpFrameDrawer, mpMapDrawer,
-                             mpMap, mpKeyFrameDatabase, strSettingsFile, mSensor);
+                             mpMap, mpKeyFrameDatabase, strSettingsFile, mSensor, bReuse);
 
     //Initialize the Local Mapping thread and launch
     mpLocalMapper = new LocalMapping(mpMap, mSensor==MONOCULAR);
@@ -319,228 +353,93 @@ void System::Shutdown()
         pangolin::BindToContext("ORB-SLAM2: Map Viewer");
 }
 
-void System::SaveTrajectoryTUM(const string &filename)
-{
-    cout << endl << "Saving camera trajectory to " << filename << " ..." << endl;
-    if(mSensor==MONOCULAR)
+void System::LoadMap(const string &filename){
     {
-        cerr << "ERROR: SaveTrajectoryTUM cannot be used for monocular." << endl;
-        return;
+        std::ifstream is(filename);
+
+       
+        boost::archive::binary_iarchive ia(is, boost::archive::no_header);
+        //ia >> mpKeyFrameDatabase;
+        ia >> mpMap;
+       
     }
 
-    vector<KeyFrame*> vpKFs = mpMap->GetAllKeyFrames();
-    sort(vpKFs.begin(),vpKFs.end(),KeyFrame::lId);
-
-    // Transform all keyframes so that the first keyframe is at the origin.
-    // After a loop closure the first keyframe might not be at the origin.
-    cv::Mat Two = vpKFs[0]->GetPoseInverse();
-
-    ofstream f;
-    f.open(filename.c_str());
-    f << fixed;
-
-    // Frame pose is stored relative to its reference keyframe (which is optimized by BA and pose graph).
-    // We need to get first the keyframe pose and then concatenate the relative transformation.
-    // Frames not localized (tracking failure) are not saved.
-
-    // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
-    // which is true when tracking failed (lbL).
-    list<ORB_SLAM2::KeyFrame*>::iterator lRit = mpTracker->mlpReferences.begin();
-    list<double>::iterator lT = mpTracker->mlFrameTimes.begin();
-    list<bool>::iterator lbL = mpTracker->mlbLost.begin();
-    for(list<cv::Mat>::iterator lit=mpTracker->mlRelativeFramePoses.begin(),
-        lend=mpTracker->mlRelativeFramePoses.end();lit!=lend;lit++, lRit++, lT++, lbL++)
-    {
-        if(*lbL)
-            continue;
-
-        KeyFrame* pKF = *lRit;
-
-        cv::Mat Trw = cv::Mat::eye(4,4,CV_32F);
-
-        // If the reference keyframe was culled, traverse the spanning tree to get a suitable keyframe.
-        while(pKF->isBad())
-        {
-            Trw = Trw*pKF->mTcp;
-            pKF = pKF->GetParent();
-        }
-
-        Trw = Trw*pKF->GetPose()*Two;
-
-        cv::Mat Tcw = (*lit)*Trw;
-        cv::Mat Rwc = Tcw.rowRange(0,3).colRange(0,3).t();
-        cv::Mat twc = -Rwc*Tcw.rowRange(0,3).col(3);
-
-        vector<float> q = Converter::toQuaternion(Rwc);
-
-        f << setprecision(6) << *lT << " " <<  setprecision(9) << twc.at<float>(0) << " " << twc.at<float>(1) << " " << twc.at<float>(2) << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
-    }
-    f.close();
-    cout << endl << "trajectory saved!" << endl;
-}
-
-
-void System::SaveKeyFrameTrajectoryTUM(const string &filename)
-{
-    cout << endl << "Saving keyframe trajectory to " << filename << " ..." << endl;
-
-    vector<KeyFrame*> vpKFs = mpMap->GetAllKeyFrames();
-    sort(vpKFs.begin(),vpKFs.end(),KeyFrame::lId);
-
-    // Transform all keyframes so that the first keyframe is at the origin.
-    // After a loop closure the first keyframe might not be at the origin.
-    //cv::Mat Two = vpKFs[0]->GetPoseInverse();
-
-    ofstream f;
-    f.open(filename.c_str());
-    f << fixed;
-
-    for(size_t i=0; i<vpKFs.size(); i++)
-    {
-        KeyFrame* pKF = vpKFs[i];
-
-       // pKF->SetPose(pKF->GetPose()*Two);
-
-        if(pKF->isBad())
-            continue;
-
-        cv::Mat R = pKF->GetRotation().t();
-        vector<float> q = Converter::toQuaternion(R);
-        cv::Mat t = pKF->GetCameraCenter();
-        f << setprecision(6) << pKF->mTimeStamp << setprecision(7) << " " << t.at<float>(0) << " " << t.at<float>(1) << " " << t.at<float>(2)
-          << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
-
-    }
-
-    f.close();
-    cout << endl << "trajectory saved!" << endl;
+    cout << endl << filename <<" : Map Loaded!" << endl;
+//     std::ifstream infile(filename);
+//     std::string line;
+//     std::getline(infile, line);
+//     int kf_count=std::stoi (line);
+//     std::getline(infile, line);
+//     int mp_count=std::stoi (line);
+//     for(size_t i=0; i<kf_count; i++){
+//         std::getline(infile, line);
+//         int line_count=std::stoi (line);
+//         std::vector<std::string> kf_str;
+//         for(int i=0;i<line_count;i++){
+//             std::getline(infile, line);
+//             kf_str.push_back(line);
+//         }
+//         KeyFrame* pKF= new KeyFrame(kf_str, mpMap,mpKeyFrameDatabase);
+//     }
+//     std::cout<<"got me"<<std::endl;
+//     for(size_t i=0; i<mp_count; i++){
+//         
+//     }
 }
 
 void System::SaveMap(const string &filename)
 {
-    cout << endl << "Saving map to " << filename << " ..." << endl;
-
-    vector<KeyFrame*> vpKFs = mpMap->GetAllKeyFrames();
-    vector<MapPoint*> vpMPs= mpMap->GetAllMapPoints();
-    sort(vpKFs.begin(),vpKFs.end(),KeyFrame::lId);
-
-    ofstream f;
-    f.open(filename.c_str());
-    f << fixed;
-    
-    std::map<long unsigned int, size_t> kf_id2ind_map;
-    std::map<long unsigned int, size_t> mp_id2ind_map;
-    
-    for(size_t i=0; i<vpKFs.size(); i++)
+    std::ofstream os(filename);
     {
-        KeyFrame* pKF = vpKFs[i];
-        if(pKF->isBad())
-            continue;
-        kf_id2ind_map[pKF->mnId]=i;
+        ::boost::archive::binary_oarchive oa(os, ::boost::archive::no_header);
+        //oa << mpKeyFrameDatabase;
+        oa << mpMap;
     }
-    
-    for(size_t i=0; i<vpMPs.size(); i++)
-    {
-        MapPoint* pMP = vpMPs[i];
-        if(pMP->isBad())
-            continue;
-        mp_id2ind_map[pMP->mnId]=i;
-    }
-
-    for(size_t i=0; i<vpKFs.size(); i++)
-    {
-        KeyFrame* pKF = vpKFs[i];
-
-        if(pKF->isBad())
-            continue;
-
-        f<<pKF->mnId<<std::endl;
-        f<<pKF->mTimeStamp<<std::endl;
-        f<<pKF->fx<<std::endl;
-        f<<pKF->fy<<std::endl;
-        f<<pKF->cx<<std::endl;
-        f<<pKF->cy<<std::endl;
-        cv::Mat R = pKF->GetRotation().t();
-        vector<float> q = Converter::toQuaternion(R);
-        cv::Mat t = pKF->GetCameraCenter();
-        f << setprecision(6) << pKF->mTimeStamp << setprecision(7) << " " << t.at<float>(0) << " " << t.at<float>(1) << " " << t.at<float>(2)
-          << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
-        f<<pKF->mvKeys.size()<<std::endl;
-        for (size_t k=0;k<pKF->mvKeys.size();k++){
-            f<<pKF->mvKeys[k].pt.x<<","<<pKF->mvKeys[k].pt.y<<","<<pKF->mvKeys[k].octave<<std::endl;
-        }
-        f<<pKF->mvKeysUn.size()<<std::endl;
-        for (size_t k=0;k<pKF->mvKeysUn.size();k++){
-            f<<pKF->mvKeysUn[k].pt.x<<","<<pKF->mvKeysUn[k].pt.y<<","<<pKF->mvKeysUn[k].octave<<std::endl;
-        }
-        
-        for (size_t ii=0; ii<pKF->mDescriptors.cols; ii++){
-            for (size_t jj=0; jj<pKF->mDescriptors.rows; jj++){
-                f<<pKF->mDescriptors.at<unsigned char>(jj,ii)<<",";
-            }
-        }
-        f<<std::endl;
-        vector<MapPoint*> mps= pKF->GetMapPointMatches();
-        
-    }
-
-    f.close();
-    cout << endl << "trajectory saved!" << endl;
-}
-
-void System::SaveTrajectoryKITTI(const string &filename)
-{
-    cout << endl << "Saving camera trajectory to " << filename << " ..." << endl;
-    if(mSensor==MONOCULAR)
-    {
-        cerr << "ERROR: SaveTrajectoryKITTI cannot be used for monocular." << endl;
-        return;
-    }
-
-    vector<KeyFrame*> vpKFs = mpMap->GetAllKeyFrames();
-    sort(vpKFs.begin(),vpKFs.end(),KeyFrame::lId);
-
-    // Transform all keyframes so that the first keyframe is at the origin.
-    // After a loop closure the first keyframe might not be at the origin.
-    cv::Mat Two = vpKFs[0]->GetPoseInverse();
-
-    ofstream f;
-    f.open(filename.c_str());
-    f << fixed;
-
-    // Frame pose is stored relative to its reference keyframe (which is optimized by BA and pose graph).
-    // We need to get first the keyframe pose and then concatenate the relative transformation.
-    // Frames not localized (tracking failure) are not saved.
-
-    // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
-    // which is true when tracking failed (lbL).
-    list<ORB_SLAM2::KeyFrame*>::iterator lRit = mpTracker->mlpReferences.begin();
-    list<double>::iterator lT = mpTracker->mlFrameTimes.begin();
-    for(list<cv::Mat>::iterator lit=mpTracker->mlRelativeFramePoses.begin(), lend=mpTracker->mlRelativeFramePoses.end();lit!=lend;lit++, lRit++, lT++)
-    {
-        ORB_SLAM2::KeyFrame* pKF = *lRit;
-
-        cv::Mat Trw = cv::Mat::eye(4,4,CV_32F);
-
-        while(pKF->isBad())
-        {
-          //  cout << "bad parent" << endl;
-            Trw = Trw*pKF->mTcp;
-            pKF = pKF->GetParent();
-        }
-
-        Trw = Trw*pKF->GetPose()*Two;
-
-        cv::Mat Tcw = (*lit)*Trw;
-        cv::Mat Rwc = Tcw.rowRange(0,3).colRange(0,3).t();
-        cv::Mat twc = -Rwc*Tcw.rowRange(0,3).col(3);
-
-        f << setprecision(9) << Rwc.at<float>(0,0) << " " << Rwc.at<float>(0,1)  << " " << Rwc.at<float>(0,2) << " "  << twc.at<float>(0) << " " <<
-             Rwc.at<float>(1,0) << " " << Rwc.at<float>(1,1)  << " " << Rwc.at<float>(1,2) << " "  << twc.at<float>(1) << " " <<
-             Rwc.at<float>(2,0) << " " << Rwc.at<float>(2,1)  << " " << Rwc.at<float>(2,2) << " "  << twc.at<float>(2) << endl;
-    }
-    f.close();
-    cout << endl << "trajectory saved!" << endl;
+    cout << endl << "Map saved to " << filename << endl;
+//     cout << endl << "Saving map to " << filename << " ..." << endl;
+// 
+//     vector<KeyFrame*> vpKFs = mpMap->GetAllKeyFrames();
+//     vector<MapPoint*> vpMPs= mpMap->GetAllMapPoints();
+//     int goodkf_count=0;
+//     int goodmp_count=0;
+//     for(size_t i=0; i<vpKFs.size(); i++){
+//         if(vpKFs[i]->isBad())
+//             continue;
+//         goodkf_count++;        
+//     }
+//     for(size_t i=0; i<vpMPs.size(); i++)
+//     {
+//         if(vpMPs[i]->isBad())
+//             continue;
+//         goodmp_count++;   
+//     }
+//     sort(vpKFs.begin(),vpKFs.end(),KeyFrame::lId);
+// 
+//     ofstream f;
+//     f.open(filename.c_str());
+//     f << fixed;
+//     f<<goodkf_count<<std::endl;
+//     f<<goodmp_count<<std::endl;
+// 
+//     for(size_t i=0; i<vpKFs.size(); i++)
+//     {
+//         KeyFrame* pKF = vpKFs[i];
+//         if(pKF->isBad())
+//             continue;
+//         std::string data_str=pKF->getKFDataStr();
+//         f<<data_str;
+//     }
+//     for(size_t i=0; i<vpMPs.size(); i++)
+//     {
+//         MapPoint* pMP = vpMPs[i];
+//         if(pMP->isBad())
+//             continue;
+//         std::string data_str=pMP->getMPDataStr();
+//         f<<data_str;
+//     }
+// 
+//     f.close();
+//     cout << endl << "map saved!" << endl;
 }
 
 int System::GetTrackingState()

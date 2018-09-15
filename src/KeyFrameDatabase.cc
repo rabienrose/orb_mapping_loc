@@ -203,6 +203,8 @@ vector<KeyFrame*> KeyFrameDatabase::DetectRelocalizationCandidates(Frame *F)
     // Search all keyframes that share a word with current frame
     {
         unique_lock<mutex> lock(mMutex);
+        
+        //std::cout<<"F->mBowVec:   "<<F->mBowVec.size()<<std::endl;
 
         for(DBoW2::BowVector::const_iterator vit=F->mBowVec.begin(), vend=F->mBowVec.end(); vit != vend; vit++)
         {
@@ -211,6 +213,7 @@ vector<KeyFrame*> KeyFrameDatabase::DetectRelocalizationCandidates(Frame *F)
             for(list<KeyFrame*>::iterator lit=lKFs.begin(), lend= lKFs.end(); lit!=lend; lit++)
             {
                 KeyFrame* pKFi=*lit;
+                //std::cout<<"F->mnId: "<<F->mnId<<"pKFi->mnRelocQuery: "<<pKFi->mnRelocQuery<<std::endl;
                 if(pKFi->mnRelocQuery!=F->mnId)
                 {
                     pKFi->mnRelocWords=0;
@@ -221,6 +224,7 @@ vector<KeyFrame*> KeyFrameDatabase::DetectRelocalizationCandidates(Frame *F)
             }
         }
     }
+    
     if(lKFsSharingWords.empty())
         return vector<KeyFrame*>();
 

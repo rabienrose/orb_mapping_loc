@@ -43,7 +43,7 @@ using namespace std;
 namespace ORB_SLAM2
 {
 
-Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Map *pMap, KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor):
+Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Map *pMap, KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor, bool bReuse):
     mState(NO_IMAGES_YET), mSensor(sensor), mbOnlyTracking(false), mbVO(false), mpORBVocabulary(pVoc),
     mpKeyFrameDB(pKFDB), mpInitializer(static_cast<Initializer*>(NULL)), mpSystem(pSys), mpViewer(NULL),
     mpFrameDrawer(pFrameDrawer), mpMapDrawer(pMapDrawer), mpMap(pMap), mnLastRelocFrameId(0)
@@ -77,6 +77,11 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     DistCoef.copyTo(mDistCoef);
 
     mbf = fSettings["Camera.bf"];
+    is_preloaded = bReuse;
+    if (is_preloaded)
+    {
+        mState = LOST;
+    }
 
     float fps = fSettings["Camera.fps"];
     if(fps==0)
@@ -275,6 +280,7 @@ void Tracking::Track()
 
     // Get Map Mutex -> Map cannot be changed
     unique_lock<mutex> lock(mpMap->mMutexMapUpdate);
+    
 
     if(mState==NOT_INITIALIZED)
     {
@@ -317,7 +323,9 @@ void Tracking::Track()
             }
             else
             {
+                
                 bOK = Relocalization();
+                std::cout<<"bOK1: "<<bOK<<std::endl;
             }
         }
         else
@@ -496,11 +504,13 @@ void Tracking::Track()
     }
     else
     {
+        std::cout<<"mlRelativeFramePoses: "<<mlRelativeFramePoses.size()<<std::endl;
         // This can happen if tracking is lost
         mlRelativeFramePoses.push_back(mlRelativeFramePoses.back());
         mlpReferences.push_back(mlpReferences.back());
         mlFrameTimes.push_back(mlFrameTimes.back());
         mlbLost.push_back(mState==LOST);
+        
     }
 
 }
@@ -1346,6 +1356,7 @@ bool Tracking::Relocalization()
     // Relocalization is performed when tracking is lost
     // Track Lost: Query KeyFrame Database for keyframe candidates for relocalisation
     vector<KeyFrame*> vpCandidateKFs = mpKeyFrameDB->DetectRelocalizationCandidates(&mCurrentFrame);
+    std::cout<<"vpCandidateKFs: "<<vpCandidateKFs.size()<<std::endl;
 
     if(vpCandidateKFs.empty())
         return false;

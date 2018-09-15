@@ -1644,7 +1644,7 @@ void ORBmatcher::ComputeThreeMaxima(vector<int>* histo, const int L, int &ind1, 
 
 // Bit set count operation from
 // http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
-int ORBmatcher::escriptorDistance(const cv::Mat &a, const cv::Mat &b)
+int ORBmatcher::DescriptorDistance(const cv::Mat &a, const cv::Mat &b)
 {
     const int *pa = a.ptr<int32_t>();
     const int *pb = b.ptr<int32_t>();
