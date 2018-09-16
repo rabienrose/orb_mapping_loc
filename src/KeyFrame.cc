@@ -777,6 +777,7 @@ KeyFrame::KeyFrame():
     mnMinX(0), mnMinY(0), mnMaxX(0),
     mnMaxY(0)
 {
+    
 #if 0
     mnId=nNextId++;
 

@@ -582,6 +582,10 @@ void MapPoint::UpdateNormalAndDepth()
         pRefKF=mpRefKF;
         Pos = mWorldPos.clone();
     }
+    
+    if(!pRefKF){
+        return;
+    }
 
     if(observations.empty())
         return;

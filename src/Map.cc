@@ -88,7 +88,6 @@ void Map::load(Archive & ar, const unsigned int version)
 
         KeyFrame* pKeyFrame = new KeyFrame;
         ar & *pKeyFrame;
-        std::cout<<"pKeyFrame->mnRelocQuery"<<pKeyFrame->mnRelocQuery<<std::endl;
         mspKeyFrames.insert(pKeyFrame);
     }     
         
