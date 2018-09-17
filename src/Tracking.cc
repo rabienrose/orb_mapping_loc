@@ -650,6 +650,7 @@ void Tracking::CreateInitialMapMonocular()
 {
     // Create KeyFrames
     KeyFrame* pKFini = new KeyFrame(mInitialFrame,mpMap,mpKeyFrameDB);
+    pKFini->mbFirstConnection=false;
     KeyFrame* pKFcur = new KeyFrame(mCurrentFrame,mpMap,mpKeyFrameDB);
 
 

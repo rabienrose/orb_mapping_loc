@@ -674,10 +674,11 @@ void LoopClosing::RunGlobalBundleAdjustment(unsigned long nLoopKF)
             unique_lock<mutex> lock(mpMap->mMutexMapUpdate);
 
             // Correct keyframes starting at map first keyframe
+            
             list<KeyFrame*> lpKFtoCheck(mpMap->mvpKeyFrameOrigins.begin(),mpMap->mvpKeyFrameOrigins.end());
-
             while(!lpKFtoCheck.empty())
             {
+                //std::cout<<"lpKFtoCheck: "<<lpKFtoCheck.size()<<std::endl;
                 KeyFrame* pKF = lpKFtoCheck.front();
                 const set<KeyFrame*> sChilds = pKF->GetChilds();
                 cv::Mat Twc = pKF->GetPoseInverse();
@@ -691,6 +692,7 @@ void LoopClosing::RunGlobalBundleAdjustment(unsigned long nLoopKF)
                         pChild->mnBAGlobalForKF=nLoopKF;
 
                     }
+                    //std::cout<<"pChild: "<<pKF->mnId<<"->"<<pChild->mnId<<std::endl;
                     lpKFtoCheck.push_back(pChild);
                 }
 

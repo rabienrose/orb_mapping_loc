@@ -461,8 +461,9 @@ template<class Archive>
         ar & const_cast<bool &> (mbToBeErased);
         ar & const_cast<bool &> (mbBad);
         ar & const_cast<float &> (mHalfBaseline);
+        
         //cout << "Load Map :  KF stat is : " << endl;
-        //cout << "KF mnId = " << mnId << " Parent ID " <<mparent_KfId_map.id <<" mspLoopEdges.size() = " << nItems <<endl;
+        cout << "KF mnId = " << mnId << " Parent ID " <<mparent_KfId_map.id <<" mspLoopEdges.size() = " << nItems <<endl;
 
     }
 
@@ -752,8 +753,9 @@ KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):
     mpORBvocabulary(F.mpORBvocabulary), mbFirstConnection(true), mpParent(NULL), mbNotErase(false),
     mbToBeErased(false), mbBad(false), mHalfBaseline(F.mb/2), mpMap(pMap)
 {
+    
     mnId=nNextId++;
-
+    std::cout<<"new kf id: "<<mnId<<std::endl;
     mGrid.resize(mnGridCols);
     for(int i=0; i<mnGridCols;i++)
     {
@@ -1108,6 +1110,7 @@ void KeyFrame::UpdateConnections()
         if(mbFirstConnection && mnId!=0)
         {
             mpParent = mvpOrderedConnectedKeyFrames.front();
+            std::cout<<"new kf get parent: "<<mnId<<"->"<<mpParent->mnId<<std::endl;
             mpParent->AddChild(this);
             mbFirstConnection = false;
         }

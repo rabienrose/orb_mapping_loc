@@ -207,6 +207,9 @@ public:
     const int mnMaxX;
     const int mnMaxY;
     const cv::Mat mK;
+    
+    // Spanning Tree and Loop Edges
+    bool mbFirstConnection;
 
 
     // The following variables need to be accessed trough a mutex to be thread safe.
@@ -235,8 +238,7 @@ protected:
     std::map<long unsigned int, id_map>     mvpOrderedConnectedKeyFrames_nId;
     std::vector<int> mvOrderedWeights;
 
-    // Spanning Tree and Loop Edges
-    bool mbFirstConnection;
+    
         
     KeyFrame* mpParent;
     id_map mparent_KfId_map;
