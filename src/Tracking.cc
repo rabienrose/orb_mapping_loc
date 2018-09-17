@@ -80,7 +80,7 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     is_preloaded = bReuse;
     if (is_preloaded)
     {
-        mState = LOST;
+        //mState = LOST;
     }
 
     float fps = fSettings["Camera.fps"];
@@ -325,7 +325,6 @@ void Tracking::Track()
             {
                 
                 bOK = Relocalization();
-                std::cout<<"bOK1: "<<bOK<<std::endl;
             }
         }
         else
@@ -405,8 +404,10 @@ void Tracking::Track()
         // If we have an initial estimation of the camera pose and matching. Track the local map.
         if(!mbOnlyTracking)
         {
-            if(bOK)
+            if(bOK){
                 bOK = TrackLocalMap();
+            }
+                
         }
         else
         {
@@ -462,8 +463,10 @@ void Tracking::Track()
             mlpTemporalPoints.clear();
 
             // Check if we need to insert a new keyframe
-            if(NeedNewKeyFrame())
+            if(NeedNewKeyFrame()){
                 CreateNewKeyFrame();
+            }
+                
 
             // We allow points with high innovation (considererd outliers by the Huber Function)
             // pass to the new keyframe, so that bundle adjustment will finally decide
@@ -504,7 +507,6 @@ void Tracking::Track()
     }
     else
     {
-        std::cout<<"mlRelativeFramePoses: "<<mlRelativeFramePoses.size()<<std::endl;
         // This can happen if tracking is lost
         mlRelativeFramePoses.push_back(mlRelativeFramePoses.back());
         mlpReferences.push_back(mlpReferences.back());
@@ -996,8 +998,10 @@ bool Tracking::NeedNewKeyFrame()
     const int nKFs = mpMap->KeyFramesInMap();
 
     // Do not insert keyframes if not enough frames have passed from last relocalisation
-    if(mCurrentFrame.mnId<mnLastRelocFrameId+mMaxFrames && nKFs>mMaxFrames)
+    if(mCurrentFrame.mnId<mnLastRelocFrameId+mMaxFrames && nKFs>mMaxFrames){        
         return false;
+    }
+        
 
     // Tracked MapPoints in the reference keyframe
     int nMinObs = 3;
@@ -1043,7 +1047,7 @@ bool Tracking::NeedNewKeyFrame()
     const bool c1c =  mSensor!=System::MONOCULAR && (mnMatchesInliers<nRefMatches*0.25 || bNeedToInsertClose) ;
     // Condition 2: Few tracked points compared to reference keyframe. Lots of visual odometry compared to map matches.
     const bool c2 = ((mnMatchesInliers<nRefMatches*thRefRatio|| bNeedToInsertClose) && mnMatchesInliers>15);
-
+    
     if((c1a||c1b||c1c)&&c2)
     {
         // If the mapping accepts keyframes, insert keyframe.
@@ -1356,7 +1360,6 @@ bool Tracking::Relocalization()
     // Relocalization is performed when tracking is lost
     // Track Lost: Query KeyFrame Database for keyframe candidates for relocalisation
     vector<KeyFrame*> vpCandidateKFs = mpKeyFrameDB->DetectRelocalizationCandidates(&mCurrentFrame);
-    std::cout<<"vpCandidateKFs: "<<vpCandidateKFs.size()<<std::endl;
 
     if(vpCandidateKFs.empty())
         return false;
@@ -1506,7 +1509,6 @@ bool Tracking::Relocalization()
     }
     else
     {
-        std::cout<<"match success!!!:"<<mCurrentFrame.mnId<<std::endl;
         mnLastRelocFrameId = mCurrentFrame.mnId;
         return true;
     }

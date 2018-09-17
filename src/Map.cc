@@ -101,7 +101,9 @@ void Map::load(Archive & ar, const unsigned int version)
         ar & *pKeyFrame;
         /* TODO : VerifyHere*/
         mvpKeyFrameOrigins.push_back(*mspKeyFrames.begin());
-    }     
+    }
+    ori_kf_count=mspKeyFrames.size();
+    ori_mp_count=mspMapPoints.size();
 
     ar & const_cast<long unsigned int &> (mnMaxKFid);
 
@@ -193,13 +195,13 @@ vector<MapPoint*> Map::GetAllMapPoints()
 long unsigned int Map::MapPointsInMap()
 {
     unique_lock<mutex> lock(mMutexMap);
-    return mspMapPoints.size();
+    return mspMapPoints.size()-ori_mp_count;
 }
 
 long unsigned int Map::KeyFramesInMap()
 {
     unique_lock<mutex> lock(mMutexMap);
-    return mspKeyFrames.size();
+    return mspKeyFrames.size()-ori_kf_count;
 }
 
 vector<MapPoint*> Map::GetReferenceMapPoints()

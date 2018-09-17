@@ -251,6 +251,8 @@ void MapPoint::SetObservations(std::vector<KeyFrame*> spKeyFrames)
 
     if (!found_reference)
     {
+        mbBad=true;
+        //todo deal with this situation
             mpRefKF = static_cast<KeyFrame*>(NULL);
             cout << "refernce KF - " << kfRef_id << "is not found for mappoint " << mnId << endl;  
             // Dummy KF
@@ -584,6 +586,7 @@ void MapPoint::UpdateNormalAndDepth()
     }
     
     if(!pRefKF){
+        //todo deal with this situation
         return;
     }
 

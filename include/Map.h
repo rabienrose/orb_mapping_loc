@@ -86,6 +86,9 @@ protected:
 
     std::mutex mMutexMap;
     
+    int ori_kf_count=0;
+    int ori_mp_count=0;
+    
     friend class boost::serialization::access;
 
     template<class Archive>
