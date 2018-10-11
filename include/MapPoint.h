@@ -81,6 +81,7 @@ public:
     }
 
     void ComputeDistinctiveDescriptors();
+    cv::Vec3b getColor();
 
     cv::Mat GetDescriptor();
 

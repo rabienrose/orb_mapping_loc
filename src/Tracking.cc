@@ -77,11 +77,6 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     DistCoef.copyTo(mDistCoef);
 
     mbf = fSettings["Camera.bf"];
-    is_preloaded = bReuse;
-    if (is_preloaded)
-    {
-        //mState = LOST;
-    }
 
     float fps = fSettings["Camera.fps"];
     if(fps==0)
@@ -150,6 +145,7 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
         else
             mDepthMapFactor = 1.0f/mDepthMapFactor;
     }
+    reloc_fail_count=0;
 
 }
 
@@ -240,7 +236,7 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const d
 }
 
 
-cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp)
+cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp, std::string file_name)
 {
     mImGray = im;
 
@@ -260,11 +256,20 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp)
     }
 
     if(mState==NOT_INITIALIZED || mState==NO_IMAGES_YET)
-        mCurrentFrame = Frame(mImGray,timestamp,mpIniORBextractor,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
+        mCurrentFrame = Frame(mImGray,timestamp,mpIniORBextractor,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,file_name);
     else
-        mCurrentFrame = Frame(mImGray,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
+        mCurrentFrame = Frame(mImGray,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,file_name);
 
+    //std::cout<<"mvKeys.size()"<<mCurrentFrame.mvKeys.size()<<std::endl;
+    for (int i=0; i<mCurrentFrame.mvKeys.size();i++){
+        
+        cv::Point2f kp= mCurrentFrame.mvKeys[i].pt;
+        int u_i=floor(kp.x);
+        int v_i=floor(kp.y);
+        mCurrentFrame.mvColors.push_back(im.at<cv::Vec3b>(v_i, u_i));
+    }
     Track();
+    
 
     return mCurrentFrame.mTcw.clone();
 }
@@ -274,7 +279,15 @@ void Tracking::Track()
     if(mState==NO_IMAGES_YET)
     {
         mState = NOT_INITIALIZED;
+//         if(mpMap->KeyFramesInMap()<=5)
+//         {
+//             mState = NOT_INITIALIZED;
+//         }
     }
+//     if (reloc_fail_count>10){
+//         reloc_fail_count=0;
+//         mState = NOT_INITIALIZED;
+//     }
 
     mLastProcessedState=mState;
 
@@ -399,7 +412,8 @@ void Tracking::Track()
             }
         }
 
-        mCurrentFrame.mpReferenceKF = mpReferenceKF;
+        mCurrentFrame.mpReferenceKF = mpReferenceKF
+        ;
 
         // If we have an initial estimation of the camera pose and matching. Track the local map.
         if(!mbOnlyTracking)
@@ -485,7 +499,7 @@ void Tracking::Track()
             if(mpMap->KeyFramesInMap()<=5)
             {
                 cout << "Track lost soon after initialisation, reseting..." << endl;
-                mpSystem->Reset();
+                //mpSystem->Reset();
                 return;
             }
         }
@@ -508,10 +522,10 @@ void Tracking::Track()
     else
     {
         // This can happen if tracking is lost
-        mlRelativeFramePoses.push_back(mlRelativeFramePoses.back());
-        mlpReferences.push_back(mlpReferences.back());
-        mlFrameTimes.push_back(mlFrameTimes.back());
-        mlbLost.push_back(mState==LOST);
+//         mlRelativeFramePoses.push_back(mlRelativeFramePoses.back());
+//         mlpReferences.push_back(mlpReferences.back());
+//         mlFrameTimes.push_back(mlFrameTimes.back());
+//         mlbLost.push_back(mState==LOST);
         
     }
 
@@ -705,6 +719,7 @@ void Tracking::CreateInitialMapMonocular()
     if(medianDepth<0 || pKFcur->TrackedMapPoints(1)<100)
     {
         cout << "Wrong initialization, reseting..." << endl;
+        //todo this reset make tool not friendly
         Reset();
         return;
     }
@@ -1082,7 +1097,6 @@ void Tracking::CreateNewKeyFrame()
 
     KeyFrame* pKF = new KeyFrame(mCurrentFrame,mpMap,mpKeyFrameDB);
 
-    mpReferenceKF = pKF;
     mCurrentFrame.mpReferenceKF = pKF;
 
     if(mSensor!=System::MONOCULAR)
@@ -1362,8 +1376,10 @@ bool Tracking::Relocalization()
     // Track Lost: Query KeyFrame Database for keyframe candidates for relocalisation
     vector<KeyFrame*> vpCandidateKFs = mpKeyFrameDB->DetectRelocalizationCandidates(&mCurrentFrame);
 
-    if(vpCandidateKFs.empty())
+    if(vpCandidateKFs.empty()){
+        reloc_fail_count++;
         return false;
+    }
 
     const int nKFs = vpCandidateKFs.size();
 
@@ -1506,11 +1522,13 @@ bool Tracking::Relocalization()
 
     if(!bMatch)
     {
+        reloc_fail_count++;
         return false;
     }
     else
     {
         mnLastRelocFrameId = mCurrentFrame.mnId;
+        reloc_fail_count=0;
         return true;
     }
 

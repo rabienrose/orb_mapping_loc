@@ -249,7 +249,7 @@ cv::Mat System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const doub
     return Tcw;
 }
 
-cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp)
+cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp, std::string file_name)
 {
     if(mSensor!=MONOCULAR)
     {
@@ -290,8 +290,7 @@ cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp)
         mbReset = false;
     }
     }
-
-    cv::Mat Tcw = mpTracker->GrabImageMonocular(im,timestamp);
+    cv::Mat Tcw = mpTracker->GrabImageMonocular(im,timestamp, file_name);
 
     unique_lock<mutex> lock2(mMutexState);
     mTrackingState = mpTracker->mState;
@@ -440,6 +439,44 @@ void System::SaveMap(const string &filename)
 // 
 //     f.close();
 //     cout << endl << "map saved!" << endl;
+}
+
+void System::SaveTrajectoryKITTI(const string &filename)
+{
+    cout << endl << "Saving camera trajectory to " << filename << " ..." << endl;
+
+    vector<KeyFrame*> vpKFs = mpMap->GetAllKeyFrames();
+    sort(vpKFs.begin(),vpKFs.end(),KeyFrame::lId);
+
+    // Transform all keyframes so that the first keyframe is at the origin.
+    // After a loop closure the first keyframe might not be at the origin.
+    cv::Mat Two = vpKFs[0]->GetPoseInverse();
+
+    ofstream f;
+    f.open(filename.c_str());
+    f << fixed;
+
+    for(int i=0; i<vpKFs.size(); i++)
+    {
+        ORB_SLAM2::KeyFrame* pKF = vpKFs[i];
+
+        while(pKF->isBad())
+        {
+            continue;
+        }
+
+        cv::Mat Trw = pKF->GetPose()*Two;
+
+        cv::Mat Rwc = Trw.rowRange(0,3).colRange(0,3).t();
+        cv::Mat twc = -Rwc*Trw.rowRange(0,3).col(3);
+
+        f << setprecision(9) << Rwc.at<float>(0,0) << " " << Rwc.at<float>(0,1)  << " " << Rwc.at<float>(0,2) << " "  << twc.at<float>(0) << " " <<
+             Rwc.at<float>(1,0) << " " << Rwc.at<float>(1,1)  << " " << Rwc.at<float>(1,2) << " "  << twc.at<float>(1) << " " <<
+             Rwc.at<float>(2,0) << " " << Rwc.at<float>(2,1)  << " " << Rwc.at<float>(2,2) << " "  << twc.at<float>(2) << endl;
+        f << pKF->file_name_<< endl;
+    }
+    f.close();
+    cout << endl << "trajectory saved!" << endl;
 }
 
 int System::GetTrackingState()

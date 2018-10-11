@@ -60,7 +60,7 @@ public:
     // Preprocess the input and call Track(). Extract features and performs stereo matching.
     cv::Mat GrabImageStereo(const cv::Mat &imRectLeft,const cv::Mat &imRectRight, const double &timestamp);
     cv::Mat GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const double &timestamp);
-    cv::Mat GrabImageMonocular(const cv::Mat &im, const double &timestamp);
+    cv::Mat GrabImageMonocular(const cv::Mat &im, const double &timestamp, std::string file_name="");
 
     void SetLocalMapper(LocalMapping* pLocalMapper);
     void SetLoopClosing(LoopClosing* pLoopClosing);
@@ -214,7 +214,7 @@ protected:
     bool mbRGB;
 
     list<MapPoint*> mlpTemporalPoints;
-    bool is_preloaded;
+    int reloc_fail_count; //if many frames continue to be failed in relocalization, do the re-initialization
 };
 
 } //namespace ORB_SLAM

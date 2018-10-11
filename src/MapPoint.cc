@@ -391,6 +391,30 @@ int MapPoint::Observations()
     return nObs;
 }
 
+cv::Vec3b MapPoint::getColor(){
+    cv::Point3i color(0,0,0);
+    int obs_count=0;
+    for(map<KeyFrame*,size_t>::iterator mit=mObservations.begin(), mend=mObservations.end(); mit!=mend; mit++)
+    {
+        KeyFrame* pKF = mit->first;
+
+        if(!pKF->isBad()){
+            if (pKF->mvColors.size()>0){
+                //std::cout<<pKF->mvColors.size()<<std::endl;
+                color.x=color.x+pKF->mvColors[mit->second][0];
+                color.y=color.y+pKF->mvColors[mit->second][1];
+                color.z=color.z+pKF->mvColors[mit->second][2];
+                obs_count=obs_count+1;
+            }
+        }
+    }
+    color.x=color.x/obs_count;
+    color.y=color.y/obs_count;
+    color.z=color.z/obs_count;
+    cv::Vec3b ret_color(color.x, color.y, color.z);
+    return ret_color;
+}
+
 void MapPoint::SetBadFlag()
 {
     map<KeyFrame*,size_t> obs;

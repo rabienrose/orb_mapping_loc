@@ -182,6 +182,7 @@ public:
     // KeyPoints, stereo coordinate and descriptors (all associated by an index)
     const std::vector<cv::KeyPoint> mvKeys;
     const std::vector<cv::KeyPoint> mvKeysUn;
+    std::vector<cv::Vec3b> mvColors;
     const std::vector<float> mvuRight; // negative value for monocular points
     const std::vector<float> mvDepth; // negative value for monocular points
     const cv::Mat mDescriptors;
@@ -210,6 +211,7 @@ public:
     
     // Spanning Tree and Loop Edges
     bool mbFirstConnection;
+    std::string file_name_;
 
 
     // The following variables need to be accessed trough a mutex to be thread safe.
@@ -237,7 +239,6 @@ protected:
     std::vector<KeyFrame*> mvpOrderedConnectedKeyFrames;
     std::map<long unsigned int, id_map>     mvpOrderedConnectedKeyFrames_nId;
     std::vector<int> mvOrderedWeights;
-
     
         
     KeyFrame* mpParent;
