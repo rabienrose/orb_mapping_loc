@@ -25,10 +25,37 @@
 #include <thread>
 #include <pangolin/pangolin.h>
 #include <iomanip>
+#include <rosbag/bag.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/CompressedImage.h>
+#include <geometry_msgs/PoseArray.h>
+#include <geometry_msgs/PoseStamped.h>
+#include <cv_bridge/cv_bridge.h>
+#include <sensor_msgs/image_encodings.h>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <Eigen/Dense>
 
 namespace ORB_SLAM2
 {
 
+    
+std::vector<std::string> split(const std::string& str, const std::string& delim)
+{
+    std::vector<std::string> tokens;
+    size_t prev = 0, pos = 0;
+    do
+    {
+        pos = str.find(delim, prev);
+        if (pos == std::string::npos) pos = str.length();
+        std::string token = str.substr(prev, pos-prev);
+        if (!token.empty()) tokens.push_back(token);
+        prev = pos + delim.length();
+    }
+    while (pos < str.length() && prev < str.length());
+    return tokens;
+}
+    
 System::System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor, const bool bUseViewer, bool bReuse, string mapFilePath):
                mSensor(sensor), mpViewer(static_cast<Viewer*>(NULL)), mbReset(false),mbActivateLocalizationMode(false),
                 mbDeactivateLocalizationMode(false)
@@ -441,6 +468,50 @@ void System::SaveMap(const string &filename)
 //     cout << endl << "map saved!" << endl;
 }
 
+void convert2MsgCloud(std::vector<cv::Mat> posi, sensor_msgs::PointCloud2& cloud_oud){
+    sensor_msgs::PointCloud2& cloud=cloud_oud;
+    sensor_msgs::PointField field;
+    field.name='x';
+    field.offset=0;
+    field.datatype=sensor_msgs::PointField::FLOAT32;
+    field.count=1;
+    cloud.fields.push_back(field);
+    field.name='y';
+    field.offset=4;
+    cloud.fields.push_back(field);
+    field.name='z';
+    field.offset=8;
+    cloud.fields.push_back(field);
+    cloud.height=1;
+    cloud.width=posi.size();
+    cloud.point_step=12;
+    cloud.row_step=cloud.width;
+    cloud.is_dense=true;
+    cloud.is_bigendian=false;
+    cloud.header.frame_id="map";
+    for(int i=0; i<posi.size(); i++){
+        cv::Mat posi_mat=posi[i];
+        float x=posi_mat.at<float>(0);
+        float y=posi_mat.at<float>(1);
+        float z=posi_mat.at<float>(2);
+        unsigned char const * pcx = reinterpret_cast<unsigned char const *>(&x);
+        cloud.data.push_back(pcx[0]);
+        cloud.data.push_back(pcx[1]);
+        cloud.data.push_back(pcx[2]);
+        cloud.data.push_back(pcx[3]);
+        unsigned char const * pcy = reinterpret_cast<unsigned char const *>(&y);
+        cloud.data.push_back(pcy[0]);
+        cloud.data.push_back(pcy[1]);
+        cloud.data.push_back(pcy[2]);
+        cloud.data.push_back(pcy[3]);
+        unsigned char const * pcz = reinterpret_cast<unsigned char const *>(&z);
+        cloud.data.push_back(pcz[0]);
+        cloud.data.push_back(pcz[1]);
+        cloud.data.push_back(pcz[2]);
+        cloud.data.push_back(pcz[3]);
+    }
+}
+
 void System::SaveTrajectoryKITTI(const string &filename)
 {
     cout << endl << "Saving camera trajectory to " << filename << " ..." << endl;
@@ -455,6 +526,9 @@ void System::SaveTrajectoryKITTI(const string &filename)
     ofstream f;
     f.open(filename.c_str());
     f << fixed;
+    f << endl;
+    
+    int count=0;
 
     for(int i=0; i<vpKFs.size(); i++)
     {
@@ -469,13 +543,109 @@ void System::SaveTrajectoryKITTI(const string &filename)
 
         cv::Mat Rwc = Trw.rowRange(0,3).colRange(0,3).t();
         cv::Mat twc = -Rwc*Trw.rowRange(0,3).col(3);
+        
+        std::vector<std::string> splited = split(pKF->file_name_, "/");
+        std::string filename= splited.back();
+        std::stringstream ss;
+        f<<count<<","<<filename<<","<<count*0.1<<",";
 
-        f << setprecision(9) << Rwc.at<float>(0,0) << " " << Rwc.at<float>(0,1)  << " " << Rwc.at<float>(0,2) << " "  << twc.at<float>(0) << " " <<
-             Rwc.at<float>(1,0) << " " << Rwc.at<float>(1,1)  << " " << Rwc.at<float>(1,2) << " "  << twc.at<float>(1) << " " <<
-             Rwc.at<float>(2,0) << " " << Rwc.at<float>(2,1)  << " " << Rwc.at<float>(2,2) << " "  << twc.at<float>(2) << endl;
-        f << pKF->file_name_<< endl;
+        f << setprecision(20) << Rwc.at<float>(0,0) << "," << Rwc.at<float>(0,1)  << "," << Rwc.at<float>(0,2) << ","  << twc.at<float>(0) << "," <<
+             Rwc.at<float>(1,0) << "," << Rwc.at<float>(1,1)  << "," << Rwc.at<float>(1,2) << ","  << twc.at<float>(1) << "," <<
+             Rwc.at<float>(2,0) << "," << Rwc.at<float>(2,1)  << "," << Rwc.at<float>(2,2) << ","  << twc.at<float>(2) << endl;
+        
+        count++;
     }
     f.close();
+    
+    
+    rosbag::Bag bag_map;
+    rosbag::Bag bag_loc;
+    bag_map.open("map.bag", rosbag::bagmode::Write);
+    bag_loc.open("loc.bag", rosbag::bagmode::Write);
+    sensor_msgs::PointCloud2 cloud;
+    vector<MapPoint*> vpMPs = mpMap->GetAllMapPoints();
+    std::vector<cv::Mat> posis;
+    for(int i=0; i<vpMPs.size(); i++){
+        ORB_SLAM2::MapPoint* pMP=vpMPs[i];
+        if(pMP->isBad()){
+            continue;
+        }
+        posis.push_back(pMP->GetWorldPos());
+    }
+    convert2MsgCloud(posis, cloud);
+    
+    bag_map.write<sensor_msgs::PointCloud2>("/map/sparse_point", ros::Time(1), cloud);
+    
+    int img_count=0;
+    geometry_msgs::PoseArray pose_msgs;
+    for(int i=0; i<vpKFs.size(); i++)
+    {
+        ORB_SLAM2::KeyFrame* pKF = vpKFs[i];
+
+        while(pKF->isBad())
+        {
+            continue;
+        }
+        cv_bridge::CvImage cv_mat;
+        cv::Mat img= cv::imread(pKF->file_name_);
+        cv_mat.image=img;
+        cv_mat.encoding="bgr8";
+        cv_mat.header.seq=img_count;
+        cv_mat.header.stamp=ros::Time(1);
+        sensor_msgs::CompressedImagePtr img_ptr= cv_mat.toCompressedImageMsg();
+        bag_map.write<sensor_msgs::CompressedImage>("/map/image/right", cv_mat.header.stamp, *img_ptr);
+        bag_loc.write<sensor_msgs::CompressedImage>("/loc/image", ros::Time(pKF->mnFrameId*0.1+1), *img_ptr);
+        vector<MapPoint*> mps = pKF->GetMapPointMatches();
+        //
+        std::vector<cv::Mat> posis;
+        for (int j=0; j<mps.size(); j++){
+            ORB_SLAM2::MapPoint* pMP=mps[j];
+            //std::cout<<mps[i]<<std::endl;
+            if(pMP){
+                if (pMP->isBad()){
+                    continue;
+                }
+                //std::cout<<pMP->GetWorldPos().t()<<std::endl;
+                posis.push_back(pMP->GetWorldPos());
+            }
+        }
+        sensor_msgs::PointCloud2 cloud;
+        
+        convert2MsgCloud(posis, cloud);
+        bag_loc.write<sensor_msgs::PointCloud2>("/loc/sparse_point",ros::Time(pKF->mnFrameId*0.1+1) ,cloud);
+
+        geometry_msgs::Pose pose_msg;
+        cv::Mat pose_inv = pKF->GetPoseInverse();
+        float x= pose_inv.at<float>(0, 3);
+        float y= pose_inv.at<float>(1, 3);
+        float z= pose_inv.at<float>(2, 3);
+        pose_msg.position.x=x;
+        pose_msg.position.y=y;
+        pose_msg.position.z=z;
+        
+        Eigen::Matrix3f e_mat;
+        for(int n=0; n<3; n++){
+            for(int m=0; m<3; m++){
+                e_mat(n,m)=pose_inv.at<float>(n, m);
+            }
+        }
+        Eigen::Quaternionf qua(e_mat);
+        pose_msg.orientation.x=qua.x();
+        pose_msg.orientation.y=qua.y();
+        pose_msg.orientation.z=qua.z();
+        pose_msg.orientation.w=qua.w();
+        pose_msgs.poses.push_back(pose_msg);
+        geometry_msgs::PoseStamped pose_stamped;
+        pose_stamped.pose=pose_msg;
+        pose_stamped.header.frame_id="map";
+        bag_loc.write<geometry_msgs::PoseStamped>("/loc/pose", ros::Time(pKF->mnFrameId*0.1+1), pose_stamped);
+        
+        img_count++;
+    }
+    pose_msgs.header.frame_id="map";
+    bag_map.write<geometry_msgs::PoseArray>("/map/pose", ros::Time(1), pose_msgs);
+    bag_map.close();
+    bag_loc.close();
     cout << endl << "trajectory saved!" << endl;
 }
 

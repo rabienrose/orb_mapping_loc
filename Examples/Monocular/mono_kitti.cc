@@ -80,7 +80,7 @@ int main(int argc, char **argv)
     {
         // Read image from file
         im = cv::imread(vstrImageFilenames[ni],CV_LOAD_IMAGE_UNCHANGED);
-        cv::resize(im,im, cv::Size(im.cols/2, im.rows/2));
+        //cv::resize(im,im, cv::Size(im.cols/2, im.rows/2));
         double tframe = vTimestamps[ni];
 
         if(im.empty())
@@ -147,15 +147,15 @@ void LoadImages(const string &strPathToSequence, vector<string> &vstrImageFilena
     float time_step=0.1;
     float cur_time=0;
     //string strPrefixLeft = strPathToSequence + "/1";
-    string strPrefixLeft = strPathToSequence + "/img_";
+    string strPrefixLeft = strPathToSequence + "/1";
     for(int i=start_frame; i<start_frame+total_frame; i++)
     {
         stringstream ss;
-        //ss << setfill('0') << setw(5) << i;
-        ss << i;
+        ss << setfill('0') << setw(5) << i;
+        //ss << i;
         vstrImageFilenames.push_back(strPrefixLeft + ss.str() + ".jpg");
         vTimestamps.push_back(cur_time);
         cur_time=cur_time+time_step;
-        //std::cout<<vstrImageFilenames[i]<<std::endl;
+        //std::cout<<strPrefixLeft + ss.str() + ".jpg"<<std::endl; 
     }
 }

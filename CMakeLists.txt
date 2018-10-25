@@ -40,11 +40,14 @@ find_package(Eigen3 3.1.0 REQUIRED)
 find_package(Pangolin REQUIRED)
 find_package(Boost 1.54.0 REQUIRED COMPONENTS serialization) 
 
+set(ROS_ROOT /opt/ros/kinetic)
+
 include_directories(
 ${PROJECT_SOURCE_DIR}
 ${PROJECT_SOURCE_DIR}/include
 ${EIGEN3_INCLUDE_DIR}
 ${Pangolin_INCLUDE_DIRS}
+${ROS_ROOT}/include
 )
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
@@ -78,6 +81,9 @@ ${Pangolin_LIBRARIES}
 ${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so
 ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
 ${Boost_LIBRARIES}
+${ROS_ROOT}/lib/librosbag_storage.so
+${ROS_ROOT}/lib/libroscpp_serialization.so
+${ROS_ROOT}/lib/libcv_bridge.so
 )
 
 # Build examples
