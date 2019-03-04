@@ -107,6 +107,17 @@ bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatc
     // Wait until both threads have finished
     threadH.join();
     threadF.join();
+//     cv::Mat fake_img = cv::Mat::ones(CurrentFrame.mnMaxY,CurrentFrame.mnMaxX , CV_8UC4)*255;
+//     for(int i=0; i<vbMatchesInliersF.size(); i++){
+//         if(vbMatchesInliersF[i]==true){
+//             int ind1=mvMatches12[i].first;
+//             int ind2=mvMatches12[i].second;
+//             cv::line(fake_img, mvKeys1[ind1].pt, mvKeys2[ind2].pt, CV_RGB(255,0,255));
+//         }
+//     }
+//     
+//     cv::imshow("chamo", fake_img);
+    //cv::waitKey(-1);
 
     // Compute ratio of scores
     float RH = SH/(SH+SF);

@@ -512,6 +512,69 @@ void convert2MsgCloud(std::vector<cv::Mat> posi, sensor_msgs::PointCloud2& cloud
     }
 }
 
+size_t findDesc(std::vector<std::pair<KeyFrame*, size_t>>& target_list, std::pair<KeyFrame*, size_t> query){
+    size_t re=-1;
+    for(int i=0; i<target_list.size(); i++){
+        if(query.first==target_list[i].first && query.second==target_list[i].second){
+            
+            re=i;
+            //std::cout<<(int)re<<std::endl;
+            break;
+        }
+    }
+    return re;
+}
+
+void System::SaveDescTrack(const string &track_file, const string &desc_file){
+    vector<MapPoint*> vpMPs = mpMap->GetAllMapPoints();
+    std::vector<cv::Mat> posis;
+    
+    int desc_count=0;
+    int track_count=0;
+    std::vector<std::pair<KeyFrame*, size_t>> desc_list;
+    std::vector<std::vector<size_t>> track_list;
+    for(int i=0; i<vpMPs.size(); i++){
+        MapPoint* mp = vpMPs[i];
+        map<KeyFrame*, size_t> tracks= mp->GetObservations();
+        std::vector<size_t> track_out;
+        for(auto item: tracks){
+            size_t desc_id = findDesc(desc_list, item);
+            if(desc_id==-1){
+                desc_list.push_back(item);
+                track_out.push_back(desc_list.size()-1);
+            }else{
+                track_out.push_back(desc_id);
+            }
+        }
+        if(track_out.size()>=3){
+            track_list.push_back(track_out);
+        }
+    }
+    std::cout<<"desc_list: "<<desc_list.size()<<std::endl;
+    std::cout<<"track_list: "<<track_list.size()<<std::endl;
+    ofstream f;
+    f.open(track_file.c_str());
+    //f << fixed;
+    for(int i=0; i<track_list.size(); i++){
+        for (auto track: track_list[i]){
+            f<<track<<",";
+        }
+        f<<std::endl;
+    }
+    f.close();
+    f.open(desc_file.c_str());
+    for(auto desc: desc_list){
+        
+        cv::Mat desc_mat = desc.first->mDescriptors.row(desc.second);
+        //std::cout<<desc_mat<<std::endl;
+        for(int i=0; i<desc_mat.cols; i++){
+            f<<(int)desc_mat.at<unsigned char>(0,i)<<",";
+        }
+        f<<std::endl;
+    }
+    f.close();
+}
+
 void System::SaveTrajectoryKITTI(const string &filename)
 {
     cout << endl << "Saving camera trajectory to " << filename << " ..." << endl;
@@ -525,8 +588,6 @@ void System::SaveTrajectoryKITTI(const string &filename)
 
     ofstream f;
     f.open(filename.c_str());
-    f << fixed;
-    f << endl;
     
     int count=0;
 
@@ -547,9 +608,9 @@ void System::SaveTrajectoryKITTI(const string &filename)
         std::vector<std::string> splited = split(pKF->file_name_, "/");
         std::string filename= splited.back();
         std::stringstream ss;
-        f<<count<<","<<filename<<","<<count*0.1<<",";
+        f<<filename<<",";
 
-        f << setprecision(20) << Rwc.at<float>(0,0) << "," << Rwc.at<float>(0,1)  << "," << Rwc.at<float>(0,2) << ","  << twc.at<float>(0) << "," <<
+        f << setprecision(15) << Rwc.at<float>(0,0) << "," << Rwc.at<float>(0,1)  << "," << Rwc.at<float>(0,2) << ","  << twc.at<float>(0) << "," <<
              Rwc.at<float>(1,0) << "," << Rwc.at<float>(1,1)  << "," << Rwc.at<float>(1,2) << ","  << twc.at<float>(1) << "," <<
              Rwc.at<float>(2,0) << "," << Rwc.at<float>(2,1)  << "," << Rwc.at<float>(2,2) << ","  << twc.at<float>(2) << endl;
         

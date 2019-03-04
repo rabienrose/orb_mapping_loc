@@ -134,6 +134,7 @@ public:
     int GetTrackingState();
     std::vector<MapPoint*> GetTrackedMapPoints();
     std::vector<cv::KeyPoint> GetTrackedKeyPointsUn();
+    void SaveDescTrack(const string &track_file, const string &desc_file);
 
 private:
 

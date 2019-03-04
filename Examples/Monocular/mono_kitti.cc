@@ -79,6 +79,7 @@ int main(int argc, char **argv)
     for(int ni=0; ni<nImages; ni++)
     {
         // Read image from file
+        //std::cout<<vstrImageFilenames[ni]<<std::endl;
         im = cv::imread(vstrImageFilenames[ni],CV_LOAD_IMAGE_UNCHANGED);
         //cv::resize(im,im, cv::Size(im.cols/2, im.rows/2));
         double tframe = vTimestamps[ni];
@@ -132,6 +133,7 @@ int main(int argc, char **argv)
     cout << "-------" << endl << endl;
     cout << "median tracking time: " << vTimesTrack[nImages/2] << endl;
     cout << "mean tracking time: " << totaltime/nImages << endl;
+    SLAM.SaveDescTrack("track.txt", "desc.txt");
     SLAM.SaveTrajectoryKITTI("traj.txt");
 
     // Save camera trajectory
@@ -147,12 +149,12 @@ void LoadImages(const string &strPathToSequence, vector<string> &vstrImageFilena
     float time_step=0.1;
     float cur_time=0;
     //string strPrefixLeft = strPathToSequence + "/1";
-    string strPrefixLeft = strPathToSequence + "/1";
+    string strPrefixLeft = strPathToSequence + "/img_";
     for(int i=start_frame; i<start_frame+total_frame; i++)
     {
         stringstream ss;
-        ss << setfill('0') << setw(5) << i;
-        //ss << i;
+        //ss << setfill('0') << setw(5) << i;
+        ss << i;
         vstrImageFilenames.push_back(strPrefixLeft + ss.str() + ".jpg");
         vTimestamps.push_back(cur_time);
         cur_time=cur_time+time_step;

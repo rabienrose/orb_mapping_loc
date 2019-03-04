@@ -624,6 +624,7 @@ void Tracking::MonocularInitialization()
         // Find correspondences
         ORBmatcher matcher(0.9,true);
         int nmatches = matcher.SearchForInitialization(mInitialFrame,mCurrentFrame,mvbPrevMatched,mvIniMatches,100);
+        //std::cout<<"nmatches: "<<nmatches<<std::endl;
 
         // Check if there are enough correspondences
         if(nmatches<100)
@@ -639,6 +640,8 @@ void Tracking::MonocularInitialization()
 
         if(mpInitializer->Initialize(mCurrentFrame, mvIniMatches, Rcw, tcw, mvIniP3D, vbTriangulated))
         {
+            std::cout<<Rcw<<std::endl;
+            std::cout<<tcw<<std::endl;
             for(size_t i=0, iend=mvIniMatches.size(); i<iend;i++)
             {
                 if(mvIniMatches[i]>=0 && !vbTriangulated[i])
