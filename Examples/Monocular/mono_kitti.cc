@@ -81,6 +81,29 @@ int main(int argc, char **argv)
         // Read image from file
         //std::cout<<vstrImageFilenames[ni]<<std::endl;
         im = cv::imread(vstrImageFilenames[ni],CV_LOAD_IMAGE_UNCHANGED);
+        cv::FileStorage fSettings(argv[2], cv::FileStorage::READ);
+        float fx = fSettings["Camera.fx"];
+        float fy = fSettings["Camera.fy"];
+        float cx = fSettings["Camera.cx"];
+        float cy = fSettings["Camera.cy"];
+
+        cv::Mat K = cv::Mat::eye(3,3,CV_32F);
+        K.at<float>(0,0) = fx;
+        K.at<float>(1,1) = fy;
+        K.at<float>(0,2) = cx;
+        K.at<float>(1,2) = cy;
+
+        cv::Mat DistCoef(4,1,CV_32F);
+        DistCoef.at<float>(0) = fSettings["Camera.k1"];
+        DistCoef.at<float>(1) = fSettings["Camera.k2"];
+        DistCoef.at<float>(2) = fSettings["Camera.p1"];
+        DistCoef.at<float>(3) = fSettings["Camera.p2"];
+        
+        cv::Mat img_undistort;
+        cv::undistort(im, img_undistort, K, DistCoef);
+        im=img_undistort;
+        //cv::imwrite("chamo.jpg", img_undistort);
+        
         //cv::resize(im,im, cv::Size(im.cols/2, im.rows/2));
         double tframe = vTimestamps[ni];
 
@@ -133,7 +156,7 @@ int main(int argc, char **argv)
     cout << "-------" << endl << endl;
     cout << "median tracking time: " << vTimesTrack[nImages/2] << endl;
     cout << "mean tracking time: " << totaltime/nImages << endl;
-    SLAM.SaveDescTrack("track.txt", "desc.txt");
+    SLAM.SaveDescTrack("track.txt", "desc.txt", "kps.txt", "posi.txt");
     SLAM.SaveTrajectoryKITTI("traj.txt");
 
     // Save camera trajectory
@@ -149,7 +172,7 @@ void LoadImages(const string &strPathToSequence, vector<string> &vstrImageFilena
     float time_step=0.1;
     float cur_time=0;
     //string strPrefixLeft = strPathToSequence + "/1";
-    string strPrefixLeft = strPathToSequence + "/img_";
+    string strPrefixLeft = strPathToSequence + "/";
     for(int i=start_frame; i<start_frame+total_frame; i++)
     {
         stringstream ss;

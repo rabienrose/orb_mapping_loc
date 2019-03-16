@@ -525,7 +525,7 @@ size_t findDesc(std::vector<std::pair<KeyFrame*, size_t>>& target_list, std::pai
     return re;
 }
 
-void System::SaveDescTrack(const string &track_file, const string &desc_file){
+void System::SaveDescTrack(const string &track_file, const string &desc_file, const string &kp_file, const string &posi_file){
     vector<MapPoint*> vpMPs = mpMap->GetAllMapPoints();
     std::vector<cv::Mat> posis;
     
@@ -533,8 +533,12 @@ void System::SaveDescTrack(const string &track_file, const string &desc_file){
     int track_count=0;
     std::vector<std::pair<KeyFrame*, size_t>> desc_list;
     std::vector<std::vector<size_t>> track_list;
+    std::vector<cv::Mat> posi_list;
     for(int i=0; i<vpMPs.size(); i++){
         MapPoint* mp = vpMPs[i];
+        if (mp->isBad()){
+            continue;
+        }
         map<KeyFrame*, size_t> tracks= mp->GetObservations();
         std::vector<size_t> track_out;
         for(auto item: tracks){
@@ -548,6 +552,7 @@ void System::SaveDescTrack(const string &track_file, const string &desc_file){
         }
         if(track_out.size()>=3){
             track_list.push_back(track_out);
+            posi_list.push_back(vpMPs[i]->GetWorldPos());
         }
     }
     std::cout<<"desc_list: "<<desc_list.size()<<std::endl;
@@ -559,6 +564,22 @@ void System::SaveDescTrack(const string &track_file, const string &desc_file){
         for (auto track: track_list[i]){
             f<<track<<",";
         }
+        f<<std::endl;
+    }
+    f.close();
+    f.open(posi_file.c_str());
+    for(int i=0; i<posi_list.size(); i++){
+        for(int j=0; j<3; j++){
+            f<<posi_list[i].at<float>(j)<<",";
+        }
+        f<<std::endl;
+    }
+    f.close();
+    f.open(kp_file.c_str());
+    for(auto desc: desc_list){
+        
+        cv::KeyPoint kp = desc.first->mvKeysUn[desc.second];
+        f<<kp.pt.x<<","<<kp.pt.y<<","<<kp.octave<<","<<desc.first->mnId;
         f<<std::endl;
     }
     f.close();
@@ -610,7 +631,7 @@ void System::SaveTrajectoryKITTI(const string &filename)
         std::stringstream ss;
         f<<filename<<",";
 
-        f << setprecision(15) << Rwc.at<float>(0,0) << "," << Rwc.at<float>(0,1)  << "," << Rwc.at<float>(0,2) << ","  << twc.at<float>(0) << "," <<
+        f << pKF->mnId<<","<< Rwc.at<float>(0,0) << "," << Rwc.at<float>(0,1)  << "," << Rwc.at<float>(0,2) << ","  << twc.at<float>(0) << "," <<
              Rwc.at<float>(1,0) << "," << Rwc.at<float>(1,1)  << "," << Rwc.at<float>(1,2) << ","  << twc.at<float>(1) << "," <<
              Rwc.at<float>(2,0) << "," << Rwc.at<float>(2,1)  << "," << Rwc.at<float>(2,2) << ","  << twc.at<float>(2) << endl;
         

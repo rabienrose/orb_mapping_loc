@@ -64,7 +64,7 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     K.copyTo(mK);
 
     cv::Mat DistCoef(4,1,CV_32F);
-    DistCoef.at<float>(0) = fSettings["Camera.k1"];
+    DistCoef.at<float>(0) = 0;
     DistCoef.at<float>(1) = fSettings["Camera.k2"];
     DistCoef.at<float>(2) = fSettings["Camera.p1"];
     DistCoef.at<float>(3) = fSettings["Camera.p2"];
@@ -238,8 +238,7 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const d
 
 cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp, std::string file_name)
 {
-    mImGray = im;
-
+    mImGray=im;
     if(mImGray.channels()==3)
     {
         if(mbRGB)
@@ -269,7 +268,6 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp,
         mCurrentFrame.mvColors.push_back(im.at<cv::Vec3b>(v_i, u_i));
     }
     Track();
-    
 
     return mCurrentFrame.mTcw.clone();
 }
