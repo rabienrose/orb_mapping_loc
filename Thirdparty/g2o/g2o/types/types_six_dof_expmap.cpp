@@ -49,6 +49,18 @@ Vector3d unproject2d(const Vector2d& v)  {
   return res;
 }
 
+VertexCam::VertexCam() : BaseVertex<4, Vector4d>() {
+    
+}
+
+bool VertexCam::read(std::istream& is) {
+  return true;
+}
+
+bool VertexCam::write(std::ostream& os) const {
+  return os.good();
+}
+
 VertexSE3Expmap::VertexSE3Expmap() : BaseVertex<6, SE3Quat>() {
 }
 
@@ -144,6 +156,100 @@ Vector2d EdgeSE3ProjectXYZ::cam_project(const Vector3d & trans_xyz) const{
   res[0] = proj[0]*fx + cx;
   res[1] = proj[1]*fy + cy;
   return res;
+}
+
+
+EdgeSE3ProjectXYZCam::EdgeSE3ProjectXYZCam() : BaseMultiEdge<2, Vector2d>() {
+    resize(3);
+}
+
+bool EdgeSE3ProjectXYZCam::read(std::istream& is){
+  for (int i=0; i<2; i++){
+    is >> _measurement[i];
+  }
+  for (int i=0; i<2; i++)
+    for (int j=i; j<2; j++) {
+      is >> information()(i,j);
+      if (i!=j)
+        information()(j,i)=information()(i,j);
+    }
+  return true;
+}
+
+bool EdgeSE3ProjectXYZCam::write(std::ostream& os) const {
+
+  for (int i=0; i<2; i++){
+    os << measurement()[i] << " ";
+  }
+
+  for (int i=0; i<2; i++)
+    for (int j=i; j<2; j++){
+      os << " " <<  information()(i,j);
+    }
+  return os.good();
+}
+
+
+// void EdgeSE3ProjectXYZCam::linearizeOplus() {
+//   VertexSE3Expmap * vj = static_cast<VertexSE3Expmap *>(_vertices[1]);
+//   SE3Quat T(vj->estimate());
+//   VertexSBAPointXYZ* vi = static_cast<VertexSBAPointXYZ*>(_vertices[0]);
+//   VertexCam* vk = static_cast<VertexCam*>(_vertices[2]);
+//   Vector3d xyz = vi->estimate();
+//   Vector3d xyz_trans = T.map(xyz);
+//   Vector4d cam = vk->estimate();
+//   fx=cam(0);
+//   fy=cam(1);
+//   cx=cam(2);
+//   cy=cam(3);
+// 
+//   double x = xyz_trans[0];
+//   double y = xyz_trans[1];
+//   double z = xyz_trans[2];
+//   double z_2 = z*z;
+// 
+//   Matrix<double,2,3> tmp;
+//   tmp(0,0) = fx;
+//   tmp(0,1) = 0;
+//   tmp(0,2) = -x/z*fx;
+// 
+//   tmp(1,0) = 0;
+//   tmp(1,1) = fy;
+//   tmp(1,2) = -y/z*fy;
+// 
+//   _jacobianOplus[0] =  -1./z * tmp * T.rotation().toRotationMatrix();
+//   Eigen::Matrix<double, 2,6> Jpose;
+// 
+//   Jpose(0,0) =  x*y/z_2 *fx;
+//   Jpose(0,1) = -(1+(x*x/z_2)) *fx;
+//   Jpose(0,2) = y/z *fx;
+//   Jpose(0,3) = -1./z *fx;
+//   Jpose(0,4) = 0;
+//   Jpose(0,5) = x/z_2 *fx;
+// 
+//   Jpose(1,0) = (1+y*y/z_2) *fy;
+//   Jpose(1,1) = -x*y/z_2 *fy;
+//   Jpose(1,2) = -x/z *fy;
+//   Jpose(1,3) = 0;
+//   Jpose(1,4) = -1./z *fy;
+//   Jpose(1,5) = y/z_2 *fy;
+//   _jacobianOplus[1]=Jpose;
+//   Eigen::Matrix<double, 2,4> Jcam;
+//   _jacobianOplus[2]=Jcam;
+// }
+
+Vector2d EdgeSE3ProjectXYZCam::cam_project(const Vector3d & trans_xyz){
+    VertexCam* vk = static_cast<VertexCam*>(_vertices[2]);
+    Vector4d cam = vk->estimate();
+    fx=cam(0);
+    fy=cam(1);
+    cx=cam(2);
+    cy=cam(3);
+    Vector2d proj = project2d(trans_xyz);
+    Vector2d res;
+    res[0] = proj[0]*fx + cx;
+    res[1] = proj[1]*fy + cy;
+    return res;
 }
 
 

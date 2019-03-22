@@ -79,7 +79,7 @@ public:
     void RequestFinish();
 
     bool isFinished();
-
+    void DoLoopDetect();
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
 protected:
@@ -91,7 +91,7 @@ protected:
     bool ComputeSim3();
 
     void SearchAndFuse(const KeyFrameAndPose &CorrectedPosesMap);
-
+    
     void CorrectLoop();
 
     void ResetIfRequested();

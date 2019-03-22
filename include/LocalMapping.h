@@ -66,7 +66,7 @@ public:
 
     void RequestFinish();
     bool isFinished();
-
+    void DoMapping();
     int KeyframesInQueue(){
         unique_lock<std::mutex> lock(mMutexNewKFs);
         return mlNewKeyFrames.size();
@@ -80,7 +80,7 @@ protected:
 
     void MapPointCulling();
     void SearchInNeighbors();
-
+    
     void KeyFrameCulling();
 
     cv::Mat ComputeF12(KeyFrame* &pKF1, KeyFrame* &pKF2);

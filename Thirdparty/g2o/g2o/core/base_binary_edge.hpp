@@ -148,6 +148,7 @@ void BaseBinaryEdge<D, E, VertexXiType, VertexXjType>::linearizeOplus()
   const double scalar = 1.0 / (2*delta);
   ErrorVector errorBak;
   ErrorVector errorBeforeNumeric = _error;
+  //std::cout<<"auto diff"<<std::endl;
 
   if (iNotFixed) {
     //Xi - estimate the jacobian numerically

@@ -53,11 +53,11 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
     vbNotIncludedMP.resize(vpMP.size());
 
     g2o::SparseOptimizer optimizer;
-    g2o::BlockSolver_6_3::LinearSolverType * linearSolver;
+    
+    g2o::BlockSolverX::LinearSolverType * linearSolver = new g2o::LinearSolverEigen<g2o::BlockSolverX::PoseMatrixType>();
+    //linearSolver = new g2o::LinearSolverCholmod<g2o::BlockSolverX::PoseMatrixType>();
 
-    linearSolver = new g2o::LinearSolverEigen<g2o::BlockSolver_6_3::PoseMatrixType>();
-
-    g2o::BlockSolver_6_3 * solver_ptr = new g2o::BlockSolver_6_3(linearSolver);
+    g2o::BlockSolverX * solver_ptr = new g2o::BlockSolverX(linearSolver);
 
     g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
     optimizer.setAlgorithm(solver);
@@ -66,11 +66,26 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
         optimizer.setForceStopFlag(pbStopFlag);
 
     long unsigned int maxKFid = 0;
-
+    g2o::VertexCam * vCam = new g2o::VertexCam();
+    int max_kfid=0;
     // Set KeyFrame vertices
     for(size_t i=0; i<vpKFs.size(); i++)
     {
         KeyFrame* pKF = vpKFs[i];
+        if(i==0){
+            Eigen::Vector4d cam_data;
+            cam_data(0)=pKF->fx;
+            cam_data(1)=pKF->fy;
+            cam_data(2)=pKF->cx;
+            cam_data(3)=pKF->cy;
+            vCam->setEstimate(cam_data);
+            //vCam->setId(-1);
+            optimizer.addVertex(vCam);
+        }
+        if(pKF->mnId>max_kfid){
+            max_kfid=pKF->mnId;
+        }
+        
         if(pKF->isBad())
             continue;
         g2o::VertexSE3Expmap * vSE3 = new g2o::VertexSE3Expmap();
@@ -80,10 +95,17 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
         optimizer.addVertex(vSE3);
         if(pKF->mnId>maxKFid)
             maxKFid=pKF->mnId;
+        
     }
+    vCam->setFixed(true);
+    if(max_kfid<20){
+        vCam->setFixed(true);
+    }
+    
 
     const float thHuber2D = sqrt(5.99);
     const float thHuber3D = sqrt(7.815);
+    std::vector<g2o::EdgeSE3ProjectXYZ*> edges;
 
     // Set MapPoint vertices
     for(size_t i=0; i<vpMP.size(); i++)
@@ -98,7 +120,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
         vPoint->setMarginalized(true);
         optimizer.addVertex(vPoint);
 
-       const map<KeyFrame*,size_t> observations = pMP->GetObservations();
+        const map<KeyFrame*,size_t> observations = pMP->GetObservations();
 
         int nEdges = 0;
         //SET EDGES
@@ -122,6 +144,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
 
                 e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(id)));
                 e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(pKF->mnId)));
+                //e->setVertex(2, dynamic_cast<g2o::OptimizableGraph::Vertex*>(vCam));
                 e->setMeasurement(obs);
                 const float &invSigma2 = pKF->mvInvLevelSigma2[kpUn.octave];
                 e->setInformation(Eigen::Matrix2d::Identity()*invSigma2);
@@ -139,6 +162,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
                 e->cy = pKF->cy;
 
                 optimizer.addEdge(e);
+                edges.push_back(e);
             }
             else
             {
@@ -182,10 +206,34 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
             vbNotIncludedMP[i]=false;
         }
     }
-
     // Optimize!
+//     float avg_error=0;
+//     for(int i=0; i<edges.size(); i++){
+//         edges[i]->computeError();
+//         avg_error=avg_error+sqrt(edges[i]->chi2())/edges.size();
+//     }
+//     std::cout<<"edge err before: "<<avg_error<<std::endl;
+    std::cout<<"cam before: "<<vCam->estimate().transpose()<<std::endl;
+    clock_t t;
+    t = clock();
     optimizer.initializeOptimization();
     optimizer.optimize(nIterations);
+    t = clock() - t;
+    std::cout<<"cam after: "<<vCam->estimate().transpose()<<std::endl;
+    //std::cout<<"opt time: "<<((float)t)/CLOCKS_PER_SEC<<std::endl;
+
+//     avg_error=0;
+//     int large_err_count=0;
+//     for(int i=0; i<edges.size(); i++){
+//         edges[i]->computeError();
+//         if(sqrt(edges[i]->chi2())>1){
+//             std::cout<<sqrt(edges[i]->chi2())<<std::endl;
+//             large_err_count++;
+//         }
+//         avg_error=avg_error+sqrt(edges[i]->chi2())/edges.size();
+//     }
+//     std::cout<<"edge err after: "<<avg_error<<std::endl;
+//     std::cout<<"large err count: "<<large_err_count<<std::endl;
 
     // Recover optimized data
 
@@ -200,6 +248,10 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
         if(nLoopKF==0)
         {
             pKF->SetPose(Converter::toCvMat(SE3quat));
+            pKF->fx=vCam->estimate()(0);
+            pKF->fy=vCam->estimate()(1);
+            pKF->cx=vCam->estimate()(2);
+            pKF->cy=vCam->estimate()(3);
         }
         else
         {
@@ -275,7 +327,7 @@ int Optimizer::PoseOptimization(Frame *pFrame)
 
 
     {
-    unique_lock<mutex> lock(MapPoint::mGlobalMutex);
+    ////unique_lock<mutex> lock(MapPoint::mGlobalMutex);
 
     for(int i=0; i<N; i++)
     {
@@ -656,9 +708,9 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
         if(*pbStopFlag)
             return;
 
-    optimizer.initializeOptimization();
+        optimizer.initializeOptimization();
     optimizer.optimize(5);
-
+    
     bool bDoMore= true;
 
     if(pbStopFlag)
@@ -743,7 +795,6 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
     }
 
     // Get Map Mutex
-    unique_lock<mutex> lock(pMap->mMutexMapUpdate);
 
     if(!vToErase.empty())
     {
@@ -986,7 +1037,7 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
     optimizer.initializeOptimization();
     optimizer.optimize(20);
 
-    unique_lock<mutex> lock(pMap->mMutexMapUpdate);
+    ////unique_lock<mutex> lock(pMap->mMutexMapUpdate);
 
     // SE3 Pose Recovering. Sim3:[sR t;0 1] -> SE3:[R t/s;0 1]
     for(size_t i=0;i<vpKFs.size();i++)

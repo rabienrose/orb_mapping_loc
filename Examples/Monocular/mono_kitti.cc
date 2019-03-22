@@ -172,7 +172,7 @@ void LoadImages(const string &strPathToSequence, vector<string> &vstrImageFilena
     float time_step=0.1;
     float cur_time=0;
     //string strPrefixLeft = strPathToSequence + "/1";
-    string strPrefixLeft = strPathToSequence + "/";
+    string strPrefixLeft = strPathToSequence + "/img_";
     for(int i=start_frame; i<start_frame+total_frame; i++)
     {
         stringstream ss;
