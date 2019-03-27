@@ -83,8 +83,8 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
         fps=30;
 
     // Max/Min Frames to insert keyframes and to check relocalisation
-    mMinFrames = 3;
-    mMaxFrames = fps;
+    mMinFrames = 5;
+    mMaxFrames = 5;
 
     cout << endl << "Camera Parameters: " << endl;
     cout << "- fx: " << fx << endl;
@@ -942,12 +942,8 @@ bool Tracking::TrackLocalMap()
 
 bool Tracking::NeedNewKeyFrame()
 {
-    if(mbOnlyTracking)
-        return false;
-
-    // If Local Mapping is freezed by a Loop Closure do not insert keyframes
-//     if(mpLocalMapper->isStopped() || mpLocalMapper->stopRequested())
-//         return false;
+    if(mnMatchesInliers<100)
+        return true;
 
     const int nKFs = mpMap->KeyFramesInMap();
 
