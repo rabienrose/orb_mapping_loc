@@ -23,7 +23,7 @@ namespace DBoW2 {
 
 // --------------------------------------------------------------------------
 
-const int FORB::L=32;
+const int FORB::L=64;
 
 void FORB::meanValue(const std::vector<FORB::pDescriptor> &descriptors, 
   FORB::TDescriptor &mean)
@@ -89,7 +89,7 @@ int FORB::distance(const FORB::TDescriptor &a,
 
   int dist=0;
 
-  for(int i=0; i<8; i++, pa++, pb++)
+  for(int i=0; i<16; i++, pa++, pb++)
   {
       unsigned  int v = *pa ^ *pb;
       v = v - ((v >> 1) & 0x55555555);

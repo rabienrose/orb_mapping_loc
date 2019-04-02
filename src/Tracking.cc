@@ -260,13 +260,13 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp,
         mCurrentFrame = Frame(mImGray,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,file_name);
 
     //std::cout<<"mvKeys.size()"<<mCurrentFrame.mvKeys.size()<<std::endl;
-    for (int i=0; i<mCurrentFrame.mvKeys.size();i++){
-        
-        cv::Point2f kp= mCurrentFrame.mvKeys[i].pt;
-        int u_i=floor(kp.x);
-        int v_i=floor(kp.y);
-        mCurrentFrame.mvColors.push_back(im.at<cv::Vec3b>(v_i, u_i));
-    }
+//     for (int i=0; i<mCurrentFrame.mvKeys.size();i++){
+//         
+//         cv::Point2f kp= mCurrentFrame.mvKeys[i].pt;
+//         int u_i=floor(kp.x);
+//         int v_i=floor(kp.y);
+//         mCurrentFrame.mvColors.push_back(im.at<cv::Vec3b>(v_i, u_i));
+//     }
     Track();
 
     return mCurrentFrame.mTcw.clone();
@@ -654,7 +654,7 @@ void Tracking::CreateInitialMapMonocular()
     float medianDepth = pKFini->ComputeSceneMedianDepth(2);
     float invMedianDepth = 1.0f/medianDepth;
 
-    if(medianDepth<0 || pKFcur->TrackedMapPoints(1)<100)
+    if(medianDepth<0 || pKFcur->TrackedMapPoints(1)<50)
     {
         cout << "Wrong initialization, reseting..." << endl;
         //todo this reset make tool not friendly

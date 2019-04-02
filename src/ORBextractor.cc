@@ -61,7 +61,9 @@
 #include <vector>
 
 #include "ORBextractor.h"
-
+#include <opencv2/features2d.hpp>
+#include <opencv2/xfeatures2d.hpp>
+#include <iostream>
 
 using namespace cv;
 using namespace std;
@@ -1058,40 +1060,37 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
 
     Mat descriptors;
 
-    int nkeypoints = 0;
-    for (int level = 0; level < nlevels; ++level)
-        nkeypoints += (int)allKeypoints[level].size();
-    if( nkeypoints == 0 )
-        _descriptors.release();
-    else
-    {
-        _descriptors.create(nkeypoints, 32, CV_8U);
-        descriptors = _descriptors.getMat();
-    }
-
-    _keypoints.clear();
-    _keypoints.reserve(nkeypoints);
+//     int nkeypoints = 0;
+//     for (int level = 0; level < nlevels; ++level)
+//         nkeypoints += (int)allKeypoints[level].size();
+//     if( nkeypoints == 0 )
+//         _descriptors.release();
+//     else
+//     {
+//         _descriptors.create(nkeypoints, 64, CV_8U);
+//         descriptors = _descriptors.getMat();
+//     }
 
     int offset = 0;
     for (int level = 0; level < nlevels; ++level)
     {
         vector<KeyPoint>& keypoints = allKeypoints[level];
-        int nkeypointsLevel = (int)keypoints.size();
-
-        if(nkeypointsLevel==0)
-            continue;
-
-        // preprocess the resized image
-        Mat workingMat = mvImagePyramid[level].clone();
-        GaussianBlur(workingMat, workingMat, Size(7, 7), 2, 2, BORDER_REFLECT_101);
-
-        // Compute the descriptors
-        Mat desc = descriptors.rowRange(offset, offset + nkeypointsLevel);
-        computeDescriptors(workingMat, keypoints, desc, pattern);
-
-        offset += nkeypointsLevel;
-
-        // Scale keypoint coordinates
+//         int nkeypointsLevel = (int)keypoints.size();
+// 
+//         if(nkeypointsLevel==0)
+//             continue;
+// 
+//         // preprocess the resized image
+//         Mat workingMat = mvImagePyramid[level].clone();
+//         GaussianBlur(workingMat, workingMat, Size(7, 7), 2, 2, BORDER_REFLECT_101);
+// 
+//         // Compute the descriptors
+//         Mat desc = descriptors.rowRange(offset, offset + nkeypointsLevel);
+//         computeDescriptors(workingMat, keypoints, desc, pattern);
+// 
+//         offset += nkeypointsLevel;
+// 
+//         // Scale keypoint coordinates
         if (level != 0)
         {
             float scale = mvScaleFactor[level]; //getScale(level, firstLevel, scaleFactor);
@@ -1102,6 +1101,11 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
         // And add the keypoints to the output
         _keypoints.insert(_keypoints.end(), keypoints.begin(), keypoints.end());
     }
+    cv::Ptr<cv::DescriptorExtractor> extractor_ = cv::xfeatures2d::FREAK::create(false, true, 22, 8);
+    //cv::Ptr<cv::DescriptorExtractor> extractor_ = cv::ORB::create();
+    extractor_->compute(image, _keypoints, _descriptors);
+    //std::cout<<"desc count: "<<_descriptors.rows<<std::endl;
+    
 }
 
 void ORBextractor::ComputePyramid(cv::Mat image)

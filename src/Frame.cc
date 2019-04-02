@@ -22,6 +22,8 @@
 #include "Converter.h"
 #include "ORBmatcher.h"
 #include <thread>
+#include <opencv2/features2d.hpp>
+#include <opencv2/xfeatures2d.hpp>
 
 namespace ORB_SLAM2
 {
