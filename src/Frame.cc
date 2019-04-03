@@ -22,6 +22,8 @@
 #include "Converter.h"
 #include "ORBmatcher.h"
 #include <thread>
+#include <opencv2/features2d.hpp>
+#include <opencv2/xfeatures2d.hpp>
 
 namespace ORB_SLAM2
 {
@@ -252,6 +254,7 @@ void Frame::ExtractORB(int flag, const cv::Mat &im)
         (*mpORBextractorLeft)(im,cv::Mat(),mvKeys,mDescriptors);
     else
         (*mpORBextractorRight)(im,cv::Mat(),mvKeysRight,mDescriptorsRight);
+    
 }
 
 void Frame::SetPose(cv::Mat Tcw)

@@ -61,7 +61,9 @@
 #include <vector>
 
 #include "ORBextractor.h"
-
+#include <opencv2/features2d.hpp>
+#include <opencv2/xfeatures2d.hpp>
+#include <iostream>
 
 using namespace cv;
 using namespace std;
@@ -1057,50 +1059,87 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
     //ComputeKeyPointsOld(allKeypoints);
 
     Mat descriptors;
-
-    int nkeypoints = 0;
-    for (int level = 0; level < nlevels; ++level)
-        nkeypoints += (int)allKeypoints[level].size();
-    if( nkeypoints == 0 )
-        _descriptors.release();
-    else
-    {
-        _descriptors.create(nkeypoints, 32, CV_8U);
-        descriptors = _descriptors.getMat();
-    }
-
-    _keypoints.clear();
-    _keypoints.reserve(nkeypoints);
-
-    int offset = 0;
-    for (int level = 0; level < nlevels; ++level)
-    {
-        vector<KeyPoint>& keypoints = allKeypoints[level];
-        int nkeypointsLevel = (int)keypoints.size();
-
-        if(nkeypointsLevel==0)
-            continue;
-
-        // preprocess the resized image
-        Mat workingMat = mvImagePyramid[level].clone();
-        GaussianBlur(workingMat, workingMat, Size(7, 7), 2, 2, BORDER_REFLECT_101);
-
-        // Compute the descriptors
-        Mat desc = descriptors.rowRange(offset, offset + nkeypointsLevel);
-        computeDescriptors(workingMat, keypoints, desc, pattern);
-
-        offset += nkeypointsLevel;
-
-        // Scale keypoint coordinates
-        if (level != 0)
+    bool use_orb=false;
+    if(use_orb){
+        int nkeypoints = 0;
+        for (int level = 0; level < nlevels; ++level)
+            nkeypoints += (int)allKeypoints[level].size();
+        if( nkeypoints == 0 )
+            _descriptors.release();
+        else
         {
-            float scale = mvScaleFactor[level]; //getScale(level, firstLevel, scaleFactor);
-            for (vector<KeyPoint>::iterator keypoint = keypoints.begin(),
-                 keypointEnd = keypoints.end(); keypoint != keypointEnd; ++keypoint)
-                keypoint->pt *= scale;
+            _descriptors.create(nkeypoints, 32, CV_8U);
+            descriptors = _descriptors.getMat();
         }
-        // And add the keypoints to the output
-        _keypoints.insert(_keypoints.end(), keypoints.begin(), keypoints.end());
+
+        _keypoints.clear();
+        _keypoints.reserve(nkeypoints);
+
+        int offset = 0;
+        for (int level = 0; level < nlevels; ++level)
+        {
+            vector<KeyPoint>& keypoints = allKeypoints[level];
+            int nkeypointsLevel = (int)keypoints.size();
+
+            if(nkeypointsLevel==0)
+                continue;
+
+            // preprocess the resized image
+            Mat workingMat = mvImagePyramid[level].clone();
+            GaussianBlur(workingMat, workingMat, Size(7, 7), 2, 2, BORDER_REFLECT_101);
+
+            // Compute the descriptors
+            Mat desc = descriptors.rowRange(offset, offset + nkeypointsLevel);
+            computeDescriptors(workingMat, keypoints, desc, pattern);
+
+            offset += nkeypointsLevel;
+
+            // Scale keypoint coordinates
+            if (level != 0)
+            {
+                float scale = mvScaleFactor[level]; //getScale(level, firstLevel, scaleFactor);
+                for (vector<KeyPoint>::iterator keypoint = keypoints.begin(),
+                    keypointEnd = keypoints.end(); keypoint != keypointEnd; ++keypoint)
+                    keypoint->pt *= scale;
+            }
+            // And add the keypoints to the output
+            _keypoints.insert(_keypoints.end(), keypoints.begin(), keypoints.end());
+        }
+    }else{
+        cv::Ptr<cv::DescriptorExtractor> extractor_ = cv::xfeatures2d::FREAK::create(false, true, 22, 1);
+        std::vector<cv::Mat> desc_levels;
+        for (int level = 0; level < nlevels; ++level)
+        {
+            vector<KeyPoint>& keypoints = allKeypoints[level];
+            int nkeypointsLevel = (int)keypoints.size();
+
+            if(nkeypointsLevel==0)
+                continue;
+
+            // preprocess the resized image
+            Mat workingMat = mvImagePyramid[level].clone();
+            GaussianBlur(workingMat, workingMat, Size(7, 7), 2, 2, BORDER_REFLECT_101);
+
+            Mat desc;
+            extractor_->compute(workingMat, keypoints, desc);
+            desc_levels.push_back(desc);
+            if (level != 0)
+            {
+                float scale = mvScaleFactor[level]; //getScale(level, firstLevel, scaleFactor);
+                for (vector<KeyPoint>::iterator keypoint = keypoints.begin(),
+                    keypointEnd = keypoints.end(); keypoint != keypointEnd; ++keypoint)
+                    keypoint->pt *= scale;
+            }
+            // And add the keypoints to the output
+            _keypoints.insert(_keypoints.end(), keypoints.begin(), keypoints.end());
+        }
+        _descriptors.create(_keypoints.size(), 64, CV_8U);
+        descriptors = _descriptors.getMat();
+        int offset=0;
+        for(int i=0; i<desc_levels.size(); i++){
+            desc_levels[i].copyTo(descriptors.rowRange(offset, offset+desc_levels[i].rows));
+            offset += desc_levels[i].rows;
+        }
     }
 }
 

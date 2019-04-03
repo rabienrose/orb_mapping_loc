@@ -1650,8 +1650,14 @@ int ORBmatcher::DescriptorDistance(const cv::Mat &a, const cv::Mat &b)
     const int *pb = b.ptr<int32_t>();
 
     int dist=0;
-
-    for(int i=0; i<8; i++, pa++, pb++)
+    int count;
+    bool use_orb=false;
+    if(use_orb){
+        count=8;
+    }else{
+        count=16;
+    }
+    for(int i=0; i<count; i++, pa++, pb++)
     {
         unsigned  int v = *pa ^ *pb;
         v = v - ((v >> 1) & 0x55555555);

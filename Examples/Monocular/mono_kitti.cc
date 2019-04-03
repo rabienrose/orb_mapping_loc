@@ -156,8 +156,8 @@ int main(int argc, char **argv)
     cout << "-------" << endl << endl;
     cout << "median tracking time: " << vTimesTrack[nImages/2] << endl;
     cout << "mean tracking time: " << totaltime/nImages << endl;
-    SLAM.SaveDescTrack("track.txt", "desc.txt", "kps.txt", "posi.txt");
-    SLAM.SaveTrajectoryKITTI("traj.txt");
+    SLAM.SaveDescTrack(map_filename+"/track.txt", map_filename+"/desc.txt", map_filename+"/kps.txt", map_filename+"/posi.txt");
+    SLAM.SaveTrajectoryKITTI(map_filename+"/traj.txt");
 
     // Save camera trajectory
     if (save_map){
