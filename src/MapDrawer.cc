@@ -43,6 +43,7 @@ MapDrawer::MapDrawer(Map* pMap, const string &strSettingPath):mpMap(pMap)
 
 void MapDrawer::DrawMapPoints()
 {
+    return;
 //     const vector<MapPoint*> &vpMPs = mpMap->GetAllMapPoints();
 //     const vector<MapPoint*> &vpRefMPs = mpMap->GetReferenceMapPoints();
 // 
